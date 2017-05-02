@@ -713,10 +713,11 @@ public class CopybookDriverImpl {
 		}
 		sbout.append(") ");
 
+		String tableOutputPath = outputPath+"/"+recordName;
 		if (genHivePartition) {
 			sbout.append("PARTITIONED BY (" + hiveTablePartition
 					+ ") ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
-			sbout.append("\'hdfs://" + outputPath.replaceAll(hivePartsLocation, "") + "\';");
+			sbout.append("\'hdfs://" + tableOutputPath.replaceAll(hivePartsLocation, "") + "\';");
 			sbout.append("\n");
 			sbout.append("ALTER TABLE " + appname + "_" + recordName + " ADD IF NOT EXISTS PARTITION (" + hivePartsInfo
 					+ ") LOCATION '" + hivePartsLocation + "';");
@@ -726,7 +727,7 @@ public class CopybookDriverImpl {
 		if (!(genHivePartition)) {
 			sbout.append(
 					"ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
-			sbout.append("\'hdfs://" + outputPath + "\';");
+			sbout.append("\'hdfs://" + tableOutputPath + "\';");
 		}
 
 		if (!(noGenHive)) {
