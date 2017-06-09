@@ -1,0 +1,188 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<!-- Licensed under the Apache License, Version 2.0 (the "License"); you 
+		may not use this file except in compliance with the License. You may obtain 
+		a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless 
+		required by applicable law or agreed to in writing, software distributed 
+		under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES 
+		OR CONDITIONS OF ANY KIND, either express or implied. See the License for 
+		the specific language governing permissions and limitations under the License. -->
+
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.apache.hadoop</groupId>
+	<artifactId>copybook_formatter</artifactId>
+	<version>1.0</version>
+	<name>copybook_formatter</name>
+
+	<repositories>
+		<repository>
+			<id>maven.senia.org</id>
+			<name>maven.senia.org</name>
+			<url>http://maven.senia.org/maven</url>
+		</repository>
+	</repositories>
+
+	<properties>
+		<app.home>/apps/copybook_formatter/</app.home>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<install.user>root</install.user>
+		<java.version>1.8</java.version>
+		<hadoop.version>2.7.1</hadoop.version>
+		<jrecord.version>0.81.4</jrecord.version>
+	</properties>
+
+	<profiles>
+		<profile>
+			<id>tar</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-assembly-plugin</artifactId>
+						<version>2.5.3</version>
+						<configuration>
+							<descriptor>assembly.xml</descriptor>
+							<tarLongFileMode>posix</tarLongFileMode>
+							<outputDirectory>${project.artifactId}/</outputDirectory>
+						</configuration>
+						<executions>
+							<execution>
+								<id>create-archive</id>
+								<phase>package</phase>
+								<goals>
+									<goal>single</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>rpm</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>rpm-maven-plugin</artifactId>
+						<version>2.1.5</version>
+						<executions>
+							<execution>
+								<phase>package</phase>
+
+								<goals>
+									<goal>rpm</goal>
+								</goals>
+							</execution>
+						</executions>
+						<configuration>
+							<copyright>2010, NoBody</copyright>
+							<group>Development</group>
+							<description>Maven Recipe: RPM Package.</description>
+							<mappings>
+								<mapping>
+									<directory>${app.home}/lib</directory>
+									<dependency>
+										<includes>
+											<include>org.apache.hadoop:JRecord-HDFS</include>
+										</includes>
+										<excludes>
+											<exclude>log4j:log4j</exclude>
+										</excludes>
+									</dependency>
+									<artifact />
+								</mapping>
+								<mapping>
+									<directory>${app.home}</directory>
+									<filemode>755</filemode>
+									<username>${install.user}</username>
+									<groupname>${install.user}</groupname>
+									<sources>
+										<source>
+											<location>${project.basedir}/src/main/resources/bin/copybook_formatter</location>
+										</source>
+										<source>
+											<location>${project.basedir}/src/main/resources/bin/install_jrecord2hdfs.sh</location>
+										</source>
+									</sources>
+								</mapping>
+								<mapping>
+									<directory>${app.home}</directory>
+									<directoryIncluded>true</directoryIncluded>
+									<filemode>755</filemode>
+									<username>${install.user}</username>
+									<groupname>${install.user}</groupname>
+									<sources>
+										<source>
+											<location>${project.basedir}/src/main/resources/bin/</location>
+										</source>
+									</sources>
+								</mapping>
+								<mapping>
+									<directory>${app.home}/samples/</directory>
+									<filemode>755</filemode>
+									<username>${install.user}</username>
+									<groupname>${install.user}</groupname>
+									<sources>
+										<source>
+											<location>${project.basedir}/src/main/resources/samples/</location>
+										</source>
+									</sources>
+								</mapping>
+								<mapping>
+									<directory>${app.home}/oozie/</directory>
+									<filemode>755</filemode>
+									<username>${install.user}</username>
+									<groupname>${install.user}</groupname>
+									<sources>
+										<source>
+											<location>${project.basedir}/src/main/resources/oozie/</location>
+										</source>
+									</sources>
+								</mapping>
+							</mappings>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+	<build>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<fork>true</fork>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<excludes>
+						<exclude>**/cb2xml.properties</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-client</artifactId>
+			<version>${hadoop.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>JRecord-HDFS</artifactId>
+			<version>${jrecord.version}</version>
+		</dependency>
+	</dependencies>
+</project>
