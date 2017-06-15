@@ -97,6 +97,8 @@ public class CopybookDriver {
 		String recLength = "";
 		String copybookLayout = "";
 		String copybookHdfsLayout = null;
+		String sortHeaderHdfsLayout = null;
+		String sortSplitHdfsLayout = null;
 		String copybookType = "";
 		String copybookSplitOpt = "NOSPLIT";
 		String hivePath = "./";
@@ -115,7 +117,17 @@ public class CopybookDriver {
 		boolean generateHiveOnly = false;
 		boolean convert = false;
 		String convertType = "";
-		
+		boolean sort = false;
+		String sortHeaderLayout = "";
+		String sortSplitLayout = "";
+		String sortHeaderLength = "";
+		String sortSplitSkipValue = "";
+		String sortSplitLengthName = "";
+		boolean sortHeaderSplit = false;
+		boolean sortRecordSkip = false;
+		boolean sortRecordName = false;
+
+
 		boolean noGenHive = false;
 		File file = null;
 
@@ -123,6 +135,7 @@ public class CopybookDriver {
 		String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 
 		options = new Options();
+		options.addOption("sort", false, "Sorts Copy Records from multiple per line to one per line");
 		options.addOption("convert", true,
 				"--convert (tsv,orc,parquet) requires (--input, --output)/(--gen_hive_only, --output), --copybook, --copybook_filetype");
 		options.addOption("gen_hive_only", false, "Hive script generation only");
@@ -137,10 +150,16 @@ public class CopybookDriver {
 		options.addOption("include_record", true, "--include_record, used for MFVB Variable Block files");
 		options.addOption("exclude_record", true, "--exclude_record, used for MFVB Variable Block files");
 		options.addOption("record_length", true, "--recordtype_length, used for MFVB Variable Block files");
+		options.addOption("sort_header_layout", true, "Copybook Sort Header layout FileName");
+		options.addOption("sort_header_length", true, "Copybook Sort Header length in bytes");
+		options.addOption("sort_split_length_name", true, "Copybook Sort Split Length Record Name");
+		options.addOption("sort_split_skip_value", true, "Copybook Sort Split Skip Value Ebcidic Hex");
+		options.addOption("sort_split_layout", true, "Copybook Sort Split layout FileName");
 		options.addOption("hive_tablename", true, "--tablename, provides hive name of table if no recordtype set");
 		options.addOption("hive_partition", true, "Hive Partition Name/Value Pairs");
 		options.addOption("no_hive_partition", false, "Generate Hive Script w/ Partitions");
 		options.addOption("hive_script_outdir", true, "Hive Script output directory");
+		
 		options.addOption("debug", false, "Debug Logging output to Mapreduce");
 		options.addOption("trace", false, "Trace Logging output to Mapreduce");
 		options.addOption("traceall", false, "TraceAll Logging output to Mapreduce");
@@ -151,7 +170,10 @@ public class CopybookDriver {
 		if (cmd.hasOption("convert")) {
 			convert = true;
 			convertType = cmd.getOptionValue("convert");
-		} 
+		}
+		if (cmd.hasOption("sort")) {
+			sort = true;
+		}
 		if (cmd.hasOption("gen_hive_only")) {
 			generateHiveOnly = true;
 		}
@@ -159,7 +181,7 @@ public class CopybookDriver {
 			missingParams();
 			System.exit(0);
 		}
-		
+
 		if (cmd.hasOption("debug")) {
 			debug = true;
 		}
@@ -172,10 +194,10 @@ public class CopybookDriver {
 			trace = true;
 			traceall = true;
 		}
-		
-		if(convert) {
-			if (cmd.hasOption("output") && cmd.hasOption("appname")
-					&& cmd.hasOption("copybook_layout") && cmd.hasOption("copybook_filetype")) {
+
+		if (convert && !(sort)) {
+			if (cmd.hasOption("output") && cmd.hasOption("appname") && cmd.hasOption("copybook_layout")
+					&& cmd.hasOption("copybook_filetype")) {
 				if (!(generateHiveOnly)) {
 					inputPath = cmd.getOptionValue("input");
 				} else {
@@ -195,7 +217,7 @@ public class CopybookDriver {
 				missingParams();
 				System.exit(0);
 			}
-			if (copybookType.equalsIgnoreCase("MFVB")) {
+			if (copybookType.equalsIgnoreCase("MFVB") && convert) {
 				if (cmd.hasOption("exclude_record") || cmd.hasOption("include_record")) {
 					if (cmd.hasOption("exclude_record")) {
 						excludeUseRecord = true;
@@ -205,39 +227,71 @@ public class CopybookDriver {
 						includeUseRecord = true;
 						includeRecord = cmd.getOptionValue("include_record");
 					}
-				} else if (cmd.hasOption("record_length")) {
+				} else if (cmd.hasOption("record_length") && convert) {
 					includeUseRecord = false;
 					useRecLength = true;
 					recLength = cmd.getOptionValue("record_length");
 					hiveTableName = cmd.getOptionValue("tablename");
 				} else {
-					System.out.println("Missing Options: include_record, exclude_record or record_length required for MFVB Types");
+					System.out.println(
+							"Missing Options: include_record, exclude_record or record_length required for MFVB Types");
 					missingParams();
-					System.exit(0);				
+					System.exit(0);
 				}
 			}
-			
-			if (cmd.hasOption("hive_tablename")) {
+
+			if (cmd.hasOption("hive_tablename") && convert) {
 				hiveTableName = cmd.getOptionValue("hive_tablename");
 			}
-			if (cmd.hasOption("hive_script_outdir")) {
+			if (cmd.hasOption("hive_script_outdir") && convert) {
 				hivePath = cmd.getOptionValue("hive_script_outdir");
 			}
-			if (cmd.hasOption("no_hive_partition")) {
+			if (cmd.hasOption("no_hive_partition") && convert) {
 				hivePartition = false;
-			} 
-			if (cmd.hasOption("hive_partition")) {
+			}
+			if (cmd.hasOption("hive_partition") && convert) {
 				hivePartitionsIn = cmd.getOptionValue("hive_partition");
 				hivePartition = true;
 			}
-			if (cmd.hasOption("no_gen_hive")) {
+			if (cmd.hasOption("no_gen_hive") && convert) {
 				noGenHive = true;
+			}
+		} else if (sort && !(convert)) {
+			if (cmd.hasOption("input") && cmd.hasOption("output") && cmd.hasOption("appname")
+					&& cmd.hasOption("copybook_filetype")) {
+				inputPath = cmd.getOptionValue("input");
+				outputPath = cmd.getOptionValue("output");
+				appname = cmd.getOptionValue("appname");
+				if (cmd.hasOption("sort_header_layout") && cmd.hasOption("sort_split_layout") && 
+						cmd.hasOption("sort_header_length") && cmd.hasOption("sort_split_length_name")) {
+					sortHeaderSplit = true;
+					sortHeaderLayout = cmd.getOptionValue("sort_header_layout");
+					sortSplitLayout = cmd.getOptionValue("sort_split_layout");
+					sortHeaderLength = cmd.getOptionValue("sort_header_length");
+					sortSplitLengthName = cmd.getOptionValue("sort_split_length_name");
+					if (cmd.hasOption("sort_split_skip_value")) {
+						sortRecordSkip = true;
+						sortSplitSkipValue = cmd.getOptionValue("sort_split_skip_value");
+					}
+				} else {
+					System.out.println("Missing Options: sort_header_layout, sort_split_layout, sort_header_length, sort_split_length_name");
+					missingParams();
+					System.exit(0);
+				}
+				copybookType = cmd.getOptionValue("copybook_filetype");
+				if (cmd.hasOption("copybook_split")) {
+					copybookSplitOpt = cmd.getOptionValue("copybook_split");
+				}
+			} else {
+				System.out.println("Missing Options: input, output, appname, copybook_filetype");
+				missingParams();
+				System.exit(0);
 			}
 		} else {
 			missingParams();
-			System.exit(0);	
+			System.exit(0);
 		}
-	
+
 		if (hivePartition) {
 			StringBuffer sbouthive = new StringBuffer();
 			StringBuffer sbouthiveloc = new StringBuffer();
@@ -264,13 +318,13 @@ public class CopybookDriver {
 			hiveTablePartition = tablePartition.toString();
 		}
 
-		System.out.println("Input:" + inputPath + ", Output: " + outputPath + ", AppName: " + appname
-				+ ", CopyBookLayOutFile: " + copybookLayout + ", copybookSplitOpt: " + copybookSplitOpt
-				+ ", copybookType: " + copybookType + ", useIncludeRecord: " + includeUseRecord + ", IncludeRecord: "
-				+ includeRecord + ", useExcludeRecord: " + excludeUseRecord + ", ExcludeRecord: " + excludeRecord
-				+ ", hivePath: " + hivePath + ", hiveTableName: " + hiveTableName + ", GenerateHiveOnly:(false) "
-				+ generateHiveOnly + ", hivePartitionsIn: " + hivePartitionsIn + ", hivePartition:(false) "
-				+ hivePartition);
+		System.out.println("Convert: " + convert + " Sort: " + sort + " Input:" + inputPath + ", Output: " + outputPath
+				+ ", AppName: " + appname + ", CopyBookLayOutFile: " + copybookLayout + ", copybookSplitOpt: "
+				+ copybookSplitOpt + ", copybookType: " + copybookType + ", useIncludeRecord: " + includeUseRecord
+				+ ", IncludeRecord: " + includeRecord + ", useExcludeRecord: " + excludeUseRecord + ", ExcludeRecord: "
+				+ excludeRecord + ", hivePath: " + hivePath + ", hiveTableName: " + hiveTableName
+				+ ", GenerateHiveOnly:(false) " + generateHiveOnly + ", hivePartitionsIn: " + hivePartitionsIn
+				+ ", hivePartition:(false) " + hivePartition);
 
 		if (copybookType.equalsIgnoreCase("MFVB")) {
 			numericType = Convert.FMT_MAINFRAME;
@@ -303,89 +357,96 @@ public class CopybookDriver {
 			font = "cp037";
 		}
 
-		String[] copybookLayoutSplit = copybookLayout.split("/");
-		int copybookLayoutSplitCount = copybookLayoutSplit.length;
-		copybookHdfsLayout = copybookLayoutSplit[copybookLayoutSplitCount - 1];
-
-		addCopyBooks(copybookLayout);
+		if (convert) {
+			addCopyBooks(copybookLayout);
+		}
+		if (sort) {
+			addCopyBooks(sortHeaderLayout);
+		}
 
 		FileSystem fs = null;
 		Path fsTempPath = null;
+
 		try {
-			LayoutDetail copyBook = ToLayoutDetail.getInstance()
-					.getLayout(copybookInt.loadCopyBook(copybookLayout, splitOption, 0, font, numericType, 0, null));
-			copyBook.getRecord(0).getFieldCount();
-			StringBuffer sbout = new StringBuffer();
-			if (includeUseRecord) {
-				sbout.append("CREATE EXTERNAL TABLE IF NOT EXISTS " + appname + "_"
-						+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "") + " (");
-			} else {
-				sbout.append("CREATE EXTERNAL TABLE IF NOT EXISTS " + appname + "_" + hiveTableName + " (");
-			}
+			if (convert && (!(sort))) {
 
-			boolean firstIn = true;
-			int filterCount = 0;
+				LayoutDetail copyBook = ToLayoutDetail.getInstance().getLayout(
+						copybookInt.loadCopyBook(copybookLayout, splitOption, 0, font, numericType, 0, null));
+				copyBook.getRecord(0).getFieldCount();
+				StringBuffer sbout = new StringBuffer();
+				if (includeUseRecord) {
+					sbout.append("CREATE EXTERNAL TABLE IF NOT EXISTS " + appname + "_"
+							+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "") + " (");
+				} else {
+					sbout.append("CREATE EXTERNAL TABLE IF NOT EXISTS " + appname + "_" + hiveTableName + " (");
+				}
 
-			for (int i = 0; i < copyBook.getRecord(0).getFieldCount(); i++) {
-				FieldDetail field = copyBook.getRecord(0).getField(i);
-				String outputClean = field.getName().trim().replaceAll(",", "_").replaceAll(" ", "_")
-						.replaceAll("[()]", "").replaceAll("-", "_");
-				if (firstIn != true) {
-					sbout.append(",");
+				boolean firstIn = true;
+				int filterCount = 0;
+
+				for (int i = 0; i < copyBook.getRecord(0).getFieldCount(); i++) {
+					FieldDetail field = copyBook.getRecord(0).getField(i);
+					String outputClean = field.getName().trim().replaceAll(",", "_").replaceAll(" ", "_")
+							.replaceAll("[()]", "").replaceAll("-", "_");
+					if (firstIn != true) {
+						sbout.append(",");
+						sbout.append(" ");
+					}
+					if (outputClean.contains("FILLER")) {
+						filterCount = filterCount + 1;
+						Integer filterCountStr = filterCount;
+						outputClean = outputClean + "_" + filterCountStr.toString();
+					}
+					sbout.append(outputClean);
+					// .replaceAll("[\r\n\t]", " ");
 					sbout.append(" ");
+					sbout.append("STRING");
+					firstIn = false;
 				}
-				if (outputClean.contains("FILLER")) {
-					filterCount = filterCount + 1;
-					Integer filterCountStr = filterCount;
-					outputClean = outputClean + "_" + filterCountStr.toString();
-				}
-				sbout.append(outputClean);
-				// .replaceAll("[\r\n\t]", " ");
-				sbout.append(" ");
-				sbout.append("STRING");
-				firstIn = false;
-			}
-			sbout.append(") ");
+				sbout.append(") ");
 
-			if (hivePartition) {
-				sbout.append("PARTITIONED BY (" + hiveTablePartition
-						+ ") ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
-				sbout.append("\'hdfs://" + outputPath.replaceAll(hivePartsLocation, "") + "\';");
-				sbout.append("\n");
-				if (includeUseRecord) {
-					sbout.append("ALTER TABLE " + appname + "_"
-							+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "")
-							+ " ADD IF NOT EXISTS PARTITION (" + hivePartsInfo + ") LOCATION '" + hivePartsLocation
-							+ "';");
-					file = new File(hivePath + "/" + appname + "_"
-							+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "") + "_"
-							+ hivePartsLocation.replaceAll("/", "_") + ".hive");
-				} else {
-					sbout.append("ALTER TABLE " + appname + "_" + hiveTableName + " ADD IF NOT EXISTS PARTITION ("
-							+ hivePartsInfo + ") LOCATION '" + hivePartsLocation + "';");
-					file = new File(hivePath + "/" + appname + "_" + hiveTableName + ".hive");
+				if (hivePartition) {
+					sbout.append("PARTITIONED BY (" + hiveTablePartition
+							+ ") ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
+					sbout.append("\'hdfs://" + outputPath.replaceAll(hivePartsLocation, "") + "\';");
+					sbout.append("\n");
+					if (includeUseRecord) {
+						sbout.append(
+								"ALTER TABLE " + appname + "_"
+										+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=",
+												"")
+										+ " ADD IF NOT EXISTS PARTITION (" + hivePartsInfo + ") LOCATION '"
+										+ hivePartsLocation + "';");
+						file = new File(hivePath + "/" + appname + "_"
+								+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "")
+								+ "_" + hivePartsLocation.replaceAll("/", "_") + ".hive");
+					} else {
+						sbout.append("ALTER TABLE " + appname + "_" + hiveTableName + " ADD IF NOT EXISTS PARTITION ("
+								+ hivePartsInfo + ") LOCATION '" + hivePartsLocation + "';");
+						file = new File(hivePath + "/" + appname + "_" + hiveTableName + ".hive");
+					}
 				}
-			}
 
-			if (!(hivePartition)) {
-				sbout.append(
-						"ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
-				sbout.append("\'hdfs://" + outputPath + "\';");
-			}
-
-			if (!(noGenHive)) {
-				if (includeUseRecord) {
-					file = new File(hivePath + "/" + appname + "_"
-							+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "")
-							+ ".hive");
-				} else {
-					file = new File(hivePath + "/" + appname + "_" + hiveTableName.replaceAll("\\.", "") + ".hive");
+				if (!(hivePartition)) {
+					sbout.append(
+							"ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t' lines terminated by '\\n' STORED AS TEXTFILE LOCATION ");
+					sbout.append("\'hdfs://" + outputPath + "\';");
 				}
-				FileWriter writer = new FileWriter(file, false);
-				PrintWriter output = new PrintWriter(writer);
-				output.print(sbout);
-				output.close();
-				writer.close();
+
+				if (!(noGenHive)) {
+					if (includeUseRecord) {
+						file = new File(hivePath + "/" + appname + "_"
+								+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "")
+								+ ".hive");
+					} else {
+						file = new File(hivePath + "/" + appname + "_" + hiveTableName.replaceAll("\\.", "") + ".hive");
+					}
+					FileWriter writer = new FileWriter(file, false);
+					PrintWriter output = new PrintWriter(writer);
+					output.print(sbout);
+					output.close();
+					writer.close();
+				}
 			}
 
 			if (!(generateHiveOnly)) {
@@ -393,20 +454,43 @@ public class CopybookDriver {
 				if (System.getProperty("oozie.action.conf.xml") != null) {
 					conf.addResource(new Path("file:///", System.getProperty("oozie.action.conf.xml")));
 				}
-				conf.set("copybook.layout", "./" + copybookHdfsLayout);
-				conf.setInt("copybook.numericType", numericType);
-				conf.setBoolean("copybook.include.useRecord", includeUseRecord);
-				conf.setBoolean("copybook.exclude.useRecord", excludeUseRecord);
-				conf.set("copybook.include.records", includeRecord);
-				conf.set("copybook.exclude.records", excludeRecord);
-				conf.set("copybook.recordLength", recLength);
-				conf.setBoolean("copybook.useRecordLength", useRecLength);
-				conf.setInt("copybook.splitOption", splitOption);
 				conf.setBoolean("copybook.debug", debug);
 				conf.setBoolean("copybook.trace", trace);
 				conf.setBoolean("copybook.traceall", traceall);
-
+				conf.setInt("copybook.splitOption", splitOption);
+				conf.setInt("copybook.numericType", numericType);
 				conf.setInt("copybook.copybookFileType", copybookFileType);
+
+				if (convert) {
+					String[] copybookLayoutSplit = copybookLayout.split("/");
+					int copybookLayoutSplitCount = copybookLayoutSplit.length;
+					copybookHdfsLayout = copybookLayoutSplit[copybookLayoutSplitCount - 1];
+					conf.set("copybook.layout", "./" + copybookHdfsLayout);
+					conf.setBoolean("copybook.include.useRecord", includeUseRecord);
+					conf.setBoolean("copybook.exclude.useRecord", excludeUseRecord);
+					conf.set("copybook.include.records", includeRecord);
+					conf.set("copybook.exclude.records", excludeRecord);
+					conf.set("copybook.recordLength", recLength);
+					conf.setBoolean("copybook.useRecordLength", useRecLength);
+				}
+				if (sort) {
+					String[] sortHeaderLayoutSplit = sortHeaderLayout.split("/");
+					int sortHeaderLayoutSplitCount = sortHeaderLayoutSplit.length;
+					sortHeaderHdfsLayout = sortHeaderLayoutSplit[sortHeaderLayoutSplitCount - 1];
+					
+					String[] sortSplitLayoutSplit = sortSplitLayout.split("/");
+					int sortSplitLayoutSplitCount = sortSplitLayoutSplit.length;
+					sortSplitHdfsLayout = sortSplitLayoutSplit[sortSplitLayoutSplitCount - 1];
+					
+					conf.setBoolean("copybook.sort", sortHeaderSplit);
+					conf.set("copybook.sort.header", "./"+sortHeaderHdfsLayout);
+					conf.set("copybook.sort.header.length", sortHeaderLength);
+					conf.set("copybook.sort.split", "./"+sortSplitHdfsLayout);
+					conf.set("copybook.sort.split.record.length.name", sortSplitLengthName);
+					conf.set("copybook.sort.split.skip.value", sortSplitSkipValue);
+					conf.setBoolean("copybook.sort.skip", sortRecordSkip);
+				}
+
 				// propagate delegation related props from launcher job to MR
 				// job
 				if (System.getenv("HADOOP_TOKEN_FILE_LOCATION") != null) {
@@ -422,44 +506,72 @@ public class CopybookDriver {
 					cb2xmlPath = cb2xmlUrl.getFile();
 				}
 
-				fs = FileSystem.get(conf);
-				long currentTime = System.currentTimeMillis();
-				String tempPath = "/tmp/" + UserGroupInformation.getCurrentUser().getShortUserName() + "-"
-						+ currentTime;
-				fsTempPath = new Path(tempPath);
-				String copybookLayoutPath = new File(copybookLayout).getAbsolutePath();
-
-				Path copybookLocalLayoutPath = new Path("file://" + copybookLayoutPath);
-				Path cb2xmlLocalPath = new Path("file://" + cb2xmlPath);
-				fs.mkdirs(fsTempPath);
-				fs.copyFromLocalFile(false, true, copybookLocalLayoutPath, fsTempPath);
-				fs.copyFromLocalFile(false, true, cb2xmlLocalPath, fsTempPath);
-
 				String jobname = null;
+				if (convert) {
 				if (includeUseRecord) {
 					jobname = appname + "_"
 							+ includeRecord.replace(".", "").replace(",", "").replace(":", "").replace("=", "");
 				} else {
 					jobname = appname + "_" + hiveTableName;
+				}}
+				if (sort) {
+					jobname = appname+"_sort";
 				}
 
 				@SuppressWarnings("deprecation")
 				Job job = new Job(conf, "CopybookDriver-" + jobname);
+				
+				fs = FileSystem.get(conf);
+				long currentTime = System.currentTimeMillis();
+				String tempPath = "/tmp/" + UserGroupInformation.getCurrentUser().getShortUserName() + "-"
+						+ currentTime;
+				fsTempPath = new Path(tempPath);
+				Path cb2xmlLocalPath = new Path("file://" + cb2xmlPath);
+				fs.mkdirs(fsTempPath);
+				if (sort) {
+					String sortHeaderLayoutPath = new File(sortHeaderLayout).getAbsolutePath();
+					Path sortHeaderLocalLayoutPath = new Path("file://" + sortHeaderLayoutPath);
+					fs.copyFromLocalFile(false, true, sortHeaderLocalLayoutPath, fsTempPath);
+					String sortSplitLayoutPath = new File(sortSplitLayout).getAbsolutePath();
+					Path sortSplitLocalLayoutPath = new Path("file://" + sortSplitLayoutPath);
+					fs.copyFromLocalFile(false, true, sortSplitLocalLayoutPath, fsTempPath);
+					job.addCacheFile(new Path("hdfs://" + tempPath + "/" + sortHeaderHdfsLayout).toUri());
+					job.addCacheFile(new Path("hdfs://" + tempPath + "/" + sortSplitHdfsLayout).toUri());
+
+				} else {
+					String copybookLayoutPath = new File(copybookLayout).getAbsolutePath();
+					Path copybookLocalLayoutPath = new Path("file://" + copybookLayoutPath);
+					fs.copyFromLocalFile(false, true, copybookLocalLayoutPath, fsTempPath);
+					job.addCacheFile(new Path("hdfs://" + tempPath + "/" + copybookHdfsLayout).toUri());
+
+				}
+				fs.copyFromLocalFile(false, true, cb2xmlLocalPath, fsTempPath);
+
 				job.addCacheFile(new Path("/apps/copybook_formatter/JRecordV2.jar").toUri());
 				job.addArchiveToClassPath(new Path("/apps/copybook_formatter/JRecordV2.jar"));
 				job.addCacheFile(new Path("hdfs://" + tempPath + "/cb2xml.properties").toUri());
-				job.addCacheFile(new Path("hdfs://" + tempPath + "/" + copybookHdfsLayout).toUri());
 				job.setJarByClass(CopybookDriver.class);
-				job.setInputFormatClass(CopybookInputFormat.class);
+
 				FileInputFormat.addInputPaths(job, inputPath);
-				job.setOutputFormatClass(TextOutputFormat.class);
-				job.setOutputKeyClass(NullWritable.class);
-				job.setOutputValueClass(Text.class);
-				job.setMapperClass(CopybookFormatMapper.class);
-				job.setNumReduceTasks(0);
-				job.setMapOutputKeyClass(Text.class);
-				job.setMapOutputValueClass(Text.class);
-				job.setOutputFormatClass(TextOutputFormat.class);
+				if (convert) {
+					job.setInputFormatClass(CopybookInputFormat.class);
+
+					job.setOutputFormatClass(TextOutputFormat.class);
+					job.setOutputKeyClass(NullWritable.class);
+					job.setOutputValueClass(Text.class);
+					job.setMapperClass(CopybookFormatMapper.class);
+					job.setNumReduceTasks(0);
+					job.setMapOutputKeyClass(Text.class);
+					job.setMapOutputValueClass(Text.class);
+					job.setOutputFormatClass(TextOutputFormat.class);
+				} else if (sort) {
+					job.setInputFormatClass(CopybookByteInputFormat.class);
+					job.setOutputFormatClass(CopybookByteOutputFormat.class);
+					job.setOutputKeyClass(Text.class);
+					job.setOutputValueClass(NullWritable.class);
+					job.setMapperClass(CopybookByteCoreMapper.class);
+					job.setNumReduceTasks(0);
+				}
 				FileOutputFormat.setOutputPath(job, new Path(outputPath));
 				job.waitForCompletion(true);
 			}
