@@ -36,8 +36,11 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import net.sf.JRecord.ByteIO.VbByteWriter;
 import net.sf.JRecord.Common.CommonBits;
 import net.sf.JRecord.Common.Constants;
+import net.sf.JRecord.Common.FieldDetail;
 import net.sf.JRecord.Details.AbstractLine;
+import net.sf.JRecord.Details.IFieldValue;
 import net.sf.JRecord.Details.LayoutDetail;
+import net.sf.JRecord.Details.Line;
 import net.sf.JRecord.External.CobolCopybookLoader;
 import net.sf.JRecord.External.CopybookLoader;
 import net.sf.JRecord.External.ToLayoutDetail;
@@ -58,7 +61,10 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 	boolean mrTrace;
 	boolean mrTraceAll;
 	boolean sortHeaderSplit;
+	boolean sortSplitOffset;
+
 	boolean sortSplitSkip;
+	boolean sortSkipEntireRecord;
 
 	String copybookLayout;
 	String sortHeaderLayout;
@@ -66,6 +72,9 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 	String sortSplitLayout;
 	String sortSplitSkipValue;
 	String sortSplitLengthName;
+	String sortSkipEntireRecordName = "";
+	String sortSkipEntireRecordValue = "";
+	String sortSplitOffsetLength = "";
 
 	int copyBookFileType;
 	int splitOption;
@@ -94,6 +103,11 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 		this.sortSplitSkip = conf.getBoolean("copybook.sort.skip", false);
 		this.sortSplitSkipValue = conf.get("copybook.sort.split.skip.value");
 		this.sortSplitLengthName = conf.get("copybook.sort.split.record.length.name");
+		this.sortSkipEntireRecord = conf.getBoolean("copybook.sort.skip.entire.record", false);
+		this.sortSkipEntireRecordName = conf.get("copybook.sort.skip.entire.record.name");
+		this.sortSkipEntireRecordValue = conf.get("copybook.sort.skip.entire.record.value");
+		this.sortSplitOffsetLength = conf.get("copybook.sort.split.record.offset.length");
+		this.sortSplitOffset = conf.getBoolean("copybook.sort.split.record.offset", false);
 
 		this.mrDebug = conf.getBoolean("copybook.debug", false);
 		this.mrTrace = conf.getBoolean("copybook.trace", false);
@@ -166,8 +180,6 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 
 		AbstractLine copyRecord;
 		int recordId = 0; // Assuming only one record type In the file
-		AbstractLineReader tempReader = this.reader;
-		AbstractLine tempRecord = tempReader.read();
 		LayoutDetail copySchema = this.reader.getLayout();
 		VbByteWriter writer = new VbByteWriter();
 		Path tempPath = new Path(file);
@@ -182,53 +194,93 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 			if (mrDebug) {
 				LOG.debug("Record Line::ByteLength: " + lineNum + " :: " + copyRecord.getData().length);
 			}
+			if (mrTraceAll) {
+				LOG.trace("Ebcidc Record Message: "+Hex.encodeHexString(copyRecord.getData()));
+			}
 			Integer startLength = 0;
 			Integer nextRecLength = 0;
 			Integer copyRecLength = copyRecord.getData().length;
-			byte[] headerBytes = copyRecord.getData(1, Integer.parseInt(sortHeaderLength));
-			tempReader.setLayout(sortSplitLayoutDetail);
-			LOG.debug("MaxSplitLength" + sortSplitLayoutDetail.getMaximumRecordLength());
-			tempRecord = tempReader.read();
-			LOG.info("SplitRecordLayout: " + tempRecord.getLayout().getLayoutName());
-			startLength = Integer.parseInt(sortHeaderLength) + 1;
-			internalRecLoop:
-			do {
-				byte[] segmentBytes = copyRecord.getData(startLength, sortSplitLayoutDetail.getMaximumRecordLength());
-				tempRecord.setData(segmentBytes);
-				int nextDecimal = 0;
-				nextRecLength = Integer.parseInt(tempRecord.getFieldValue(sortSplitLengthName).asString());
-				if (nextRecLength == 0) {
-					if (sortSplitSkip) {
-						if (copybookSysType == Convert.FMT_MAINFRAME) {
-							LOG.trace("Z/OS EBCIDIC HexString: " + Hex.encodeHexString(segmentBytes).substring(0,
-									sortSplitLayoutDetail.getMaximumRecordLength()));
-							String checkHex = Hex.encodeHexString(segmentBytes).substring(0,
-									sortSplitLayoutDetail.getMaximumRecordLength() / 2);
-							if (checkHex.equalsIgnoreCase(sortSplitSkipValue)) {
-								String checkHexLength = Hex.encodeHexString(segmentBytes).substring(
-										sortSplitLayoutDetail.getMaximumRecordLength() / 2,
-										sortSplitLayoutDetail.getMaximumRecordLength());
-								LOG.debug("HEX VALUE: " + checkHexLength);
-								nextDecimal = Integer.parseInt("00" + checkHexLength, 16);
-								LOG.debug("Decimal: " + nextDecimal);
-							}
-							nextRecLength = nextDecimal;
-						}
-					} else {
-						LOG.error("Breaking Loop: "+lineNum);
-						break internalRecLoop;
-					}
-				}
+			String skipRecordHex = "";
+			FieldDetail testField = null;
+			if (sortSkipEntireRecord) {
 
-				LOG.debug("NextRecLength: " + nextRecLength);
-				byte[] dataBytes = copyRecord.getData(startLength, nextRecLength - 1);
-				byte[] concatBytes = ArrayUtils.addAll(headerBytes, dataBytes);
-				startLength = nextRecLength + startLength;
-				LOG.debug("NextStartLength: " + startLength);
-				LOG.debug("Record Length::" + copyRecLength + ", FileName::" + file);
-				writer.write(concatBytes);
-				output.flush();
-			} while (copyRecLength > startLength);
+				skipRecordHex = copyRecord.getFieldValue(sortSkipEntireRecordName).asHex();
+			}
+			if (!(copyRecLength <= Integer.parseInt(sortHeaderLength))) {
+				if (sortSkipEntireRecord && sortSkipEntireRecordValue.equalsIgnoreCase(skipRecordHex)) {
+					LOG.warn("Skipping/Discarding Record LineNum: " + lineNum);
+				} else {
+					byte[] headerBytes = copyRecord.getData(1, Integer.parseInt(sortHeaderLength));
+					LOG.debug("MaxSplitLength" + sortSplitLayoutDetail.getMaximumRecordLength());
+					AbstractLine tempRecord = new Line(sortSplitLayoutDetail);
+					tempRecord.setLayout(sortSplitLayoutDetail);
+					LOG.info("SplitRecordLayout: " + tempRecord.getLayout().getLayoutName());
+					startLength = Integer.parseInt(sortHeaderLength) + 1;
+					internalRecLoop: do {
+						byte[] segmentBytes = copyRecord.getData(startLength,
+								sortSplitLayoutDetail.getMaximumRecordLength());
+						tempRecord.setData(segmentBytes);
+						int nextDecimal = 0;
+						nextRecLength = Integer.parseInt(tempRecord.getFieldValue(sortSplitLengthName).asString());
+						if (mrTraceAll) {
+							LOG.trace("Ebcidc Segment Id/Length Message: "+Hex.encodeHexString(tempRecord.getData()));
+						}
+						if ((nextRecLength < 0) || (nextRecLength > copyRecLength)) {
+							LOG.error("!!Record Error!! Breaking Out of Loop: " + lineNum);
+							LOG.error("!!Reord Error!! NextRecLength " + nextRecLength + " < 0  or "
+									+ nextRecLength + "(NextRecLength) >" + copyRecLength+"(copyRecLength)");
+							LOG.error("!!Record Error!! Segment Length/ID Hex: "+Hex.encodeHexString(tempRecord.getData()));
+							LOG.error("!!Record Error!! CopyRecord Hex: "+Hex.encodeHexString(copyRecord.getData()));
+							break internalRecLoop;
+						}
+						if (nextRecLength == 0) {
+							if (sortSplitSkip) {
+								if (copybookSysType == Convert.FMT_MAINFRAME) {
+									LOG.trace("Z/OS EBCIDIC HexString: " + Hex.encodeHexString(segmentBytes)
+											.substring(0, sortSplitLayoutDetail.getMaximumRecordLength()));
+									String checkHex = Hex.encodeHexString(segmentBytes).substring(0,
+											sortSplitLayoutDetail.getMaximumRecordLength() / 2);
+									if (checkHex.equalsIgnoreCase(sortSplitSkipValue)) {
+										String checkHexLength = Hex.encodeHexString(segmentBytes).substring(
+												sortSplitLayoutDetail.getMaximumRecordLength() / 2,
+												sortSplitLayoutDetail.getMaximumRecordLength());
+										LOG.trace("HEX VALUE: " + checkHexLength);
+										nextDecimal = Integer.parseInt("00" + checkHexLength, 16);
+										LOG.trace("Decimal: " + nextDecimal);
+									} else {
+										LOG.error("!!Record Error!! Breaking Out of Loop: " + lineNum);
+										LOG.error("!!Record Error!! Segment Length/ID Hex: "+Hex.encodeHexString(tempRecord.getData()));
+										LOG.error("!!Record Error!! CopyRecord Hex: "+Hex.encodeHexString(copyRecord.getData()));	
+										break internalRecLoop;
+									}
+									nextRecLength = nextDecimal;
+								}
+							} else {
+								LOG.error("!!Record Error!! Breaking Out of Loop: " + lineNum);
+								LOG.error("!!Record Error!! Segment Length/ID Hex: "+Hex.encodeHexString(tempRecord.getData()));
+								LOG.error("!!Record Error!! CopyRecord Hex: "+Hex.encodeHexString(copyRecord.getData()));
+								break internalRecLoop;
+							}
+						}
+						if (sortSplitOffset) {
+							LOG.debug("Offset Used");
+							LOG.debug("Next RecordLength before Offset: "+nextRecLength);
+							nextRecLength=nextRecLength + Integer.parseInt(sortSplitOffsetLength);
+							LOG.debug("NextRecLength after Offset: " + nextRecLength);
+
+						} else {
+							LOG.debug("NextRecLength: " + nextRecLength);
+						}
+						byte[] dataBytes = copyRecord.getData(startLength, nextRecLength - 1);
+						byte[] concatBytes = ArrayUtils.addAll(headerBytes, dataBytes);
+						startLength = nextRecLength + startLength;
+						LOG.debug("Next Record StartLength: " + startLength);
+						LOG.debug("Total Record Length::" + copyRecLength + ", FileName::" + file);
+						writer.write(concatBytes);
+						output.flush();
+					} while (copyRecLength > startLength);
+				}
+			}
 		}
 		writer.close();
 	}

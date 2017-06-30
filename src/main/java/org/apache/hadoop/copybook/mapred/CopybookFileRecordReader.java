@@ -297,9 +297,6 @@ public class CopybookFileRecordReader extends RecordReader<NullWritable, Text> {
 			includeRecordValue.setLength(0);
 			boolean recTypeValue = false;
 
-			if (mrDebug) {
-				LOG.debug("Record Line::ByteLength: " + lineNum + " :: " + copyRecord.getData().length);
-			}
 			Integer copyRecLength = copyRecord.getData().length;
 			if (useRecLength) {
 				LOG.info("Record Line::ByteLength: " + lineNum + " :: " + copyRecLength);
@@ -374,13 +371,7 @@ public class CopybookFileRecordReader extends RecordReader<NullWritable, Text> {
 							byte[] recByteArray = copyRecord.getData();
 							if (copybookSysType == Convert.FMT_MAINFRAME) {
 								Charset charset = Charset.forName("cp037");
-								byte[] recByteArrayLE = new String(recByteArray, charset).getBytes();
-								LOG.trace("Z/OS EBCIDIC RecordLine:  " + new String(recByteArray));
 								LOG.trace("Z/OS EBCIDIC HexString: " + Hex.encodeHexString(recByteArray));
-								LOG.trace(
-										"Converted EBCIDIC to ASCII RecordLine:  " + new String(recByteArray, charset));
-								LOG.trace("Converted EBCIDIC to ASCII HexString:  "
-										+ Hex.encodeHexString(recByteArrayLE));
 							} else {
 								LOG.trace("HexArray RecordLine:  " + new String(recByteArray));
 							}

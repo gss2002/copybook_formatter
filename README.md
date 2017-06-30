@@ -21,6 +21,8 @@
 
 	./copybook_formatter -convert tsv -appname FCUST -copybook_layout ./RCUSTDAT.cpy.txt -copybook_filetype MFVB -input ./fcust_src -output ./fcust_tran145 -include_record TRANSACTION-NBR=1:TRANSACTION-NBR=4:TRANSACTION-NBR=5
 
+#### Split/Sort Copybook Options
+	./copybook_formatter -sort -appname FCUST -sort_header_layout ./fcust_header.txt -sort_header_length 49 -sort_split_layout ./fcust_split.txt -copybook_filetype MFVB -input ./fcust_src -output ./fcust_split_sort_out -sort_split_length_name RECORD-LENGTH -sort_split_skip_value bf -sort_skip_record_name KEY-INDEX -sort_skip_record_value bf -traceall -sort_split_length_offset 3
 
 #### Create Hive Table Layout:
 

@@ -11,13 +11,16 @@
                 </property>
             </configuration>
             <main-class>org.apache.hadoop.copybook.mapred.CopybookDriver</main-class>
-            <arg>-convert2tsv</arg>
+            <arg>-convert</arg>
+            <arg>tsv</arg>
             <arg>-input</arg>
             <arg>/user/gss2002/fcust_source</arg>
             <arg>--output</arg>
             <arg>/user/gss2002/fcust_output</arg>
             <arg>-appname</arg>
             <arg>FCUST</arg>
+             <arg>-hive_tablename</arg>
+            <arg>fcust_data</arg>    
             <arg>-copybook_layout</arg>
             <arg>./RCUSTDAT.cpy.txt</arg>
             <arg>-copybook_filetype</arg>
