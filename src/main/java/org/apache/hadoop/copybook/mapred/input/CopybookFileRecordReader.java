@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.copybook.mapred;
+package org.apache.hadoop.copybook.mapred.input;
 
 import java.io.IOException;
 import java.nio.charset.Charset;

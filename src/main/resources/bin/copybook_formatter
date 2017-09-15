@@ -30,6 +30,8 @@ else
 fi
 
 JRECORDJAR=`ls -1 $binDir/lib/JRecord*.jar`
-export HADOOP_CLASSPATH=$JRECORDJAR
+JSONJAR=`ls -1 $binDir/lib/json*.jar`
+
+export HADOOP_CLASSPATH=$JRECORDJAR:$JSONJAR
 COPYBOOKJAR=`ls -1 $binDir/lib/copybook_formatter*.jar`
-/usr/bin/hadoop jar $COPYBOOKJAR org.apache.hadoop.copybook.mapred.CopybookDriver "$@"
+/usr/bin/hadoop jar $COPYBOOKJAR org.apache.hadoop.copybook.mapred.CopybookDriverImpl "$@"

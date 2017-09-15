@@ -20,10 +20,14 @@ package org.apache.hadoop.copybook.mapred;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
 
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Common.FieldDetail;
@@ -40,6 +44,10 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.copybook.mapred.input.CopybookByteInputFormat;
+import org.apache.hadoop.copybook.mapred.input.CopybookInputFormat;
+import org.apache.hadoop.copybook.mapred.output.CopybookByteOutputFormat;
+import org.apache.hadoop.copybook.mapred.utils.CopybookParser;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
@@ -89,6 +97,7 @@ public class CopybookDriver {
 		int splitOption = 0;
 		int copybookFileType = 0;
 		String inputPath = "";
+		String tempPathCopy;
 		String outputPath = "";
 		String appname = "";
 		String includeRecord = "";
@@ -109,6 +118,7 @@ public class CopybookDriver {
 		boolean debug = false;
 		boolean trace = false;
 		boolean traceall = false;
+		boolean multipleCopyLayout = false;
 		String hivePartsInfo = null;
 		String hivePartsLocation = null;
 		String hiveTablePartition = null;
@@ -338,6 +348,33 @@ public class CopybookDriver {
 			hivePartsInfo = sbouthive.toString();
 			hivePartsLocation = sbouthiveloc.toString();
 			hiveTablePartition = tablePartition.toString();
+		}
+		
+		if (copybookLayout.contains(",")) {
+			multipleCopyLayout=true;
+			long currentTimeCopy = System.currentTimeMillis();
+			long currentNanoTimeCopy = System.nanoTime();
+			String[] copybookLayoutFiles = copybookLayout.split(",");
+			File getParentPath = new File(copybookLayoutFiles[0]);
+			new File(getParentPath.getParent());
+			tempPathCopy = getParentPath.getParent()+"/"+currentTimeCopy+"_"+currentNanoTimeCopy+".txt";
+
+			List<File> copybookArrayList = new ArrayList<File>();
+			for (String s: copybookLayoutFiles) {           
+		        System.out.println(s);
+		        copybookArrayList.add(new File(s));
+		    }
+			// TODO Auto-generated method stub
+			
+			File[] fileList = copybookArrayList.toArray(new File[copybookArrayList.size()]);
+
+			copybookLayout = tempPathCopy;
+			try {
+				joinFiles(new File(copybookLayout), fileList);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 		System.out.println("Convert: " + convert + " Sort: " + sort + " Input:" + inputPath + ", Output: " + outputPath
@@ -611,6 +648,10 @@ public class CopybookDriver {
 			if (fs != null || fsTempPath != null) {
 				fs.deleteOnExit(fsTempPath);
 			}
+			if (multipleCopyLayout) {
+	    		File copyLayoutFile = new File(copybookLayout);
+	    		copyLayoutFile.delete();
+			}
 		}
 	}
 
@@ -622,7 +663,23 @@ public class CopybookDriver {
 		System.exit(0);
 	}
 
-	private static void mergeCopyBook() {
+	public static void joinFiles(File destination, File[] sources) throws IOException {
+		for (File source : sources) {
+			System.out.println("Merging CopyBooks: " + source +" to "+destination);
+			appendFile(destination, source);
+		}
+	}
+
+	private static void appendFile(File output, File source) throws IOException {
+		RandomAccessFile inRaf = new RandomAccessFile(source.getPath(), "r");
+		RandomAccessFile outRaf = new RandomAccessFile(output.getPath(), "rw");
+		long outRafSize = outRaf.length();
+		outRaf.seek(outRafSize);
+		byte[] dataFile = new byte[(int) source.length()];
+		inRaf.readFully(dataFile);
+		outRaf.write(dataFile);
+		outRaf.close();
+		inRaf.close();
 
 	}
 }

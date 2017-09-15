@@ -15,26 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- package org.apache.hadoop.copybook.mapred;
+package org.apache.hadoop.copybook.mapred.utils;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.RecordWriter;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import java.io.InputStream;
 
-public class CopybookByteOutputFormat extends FileOutputFormat<Text, NullWritable> {
+import org.apache.commons.io.IOUtils;
+import org.json.JSONObject;
 
-	@Override
-	public RecordWriter<Text, NullWritable> getRecordWriter(TaskAttemptContext taskAttemptContext)
-			throws IOException, InterruptedException {
-		Configuration conf = taskAttemptContext.getConfiguration();
-		String extension = "";
-		Path file = getDefaultWorkFile(taskAttemptContext, extension);
+public class JsonFileReader {
 
-		return new CopybookByteWriter(file, conf, taskAttemptContext);
+	public static JSONObject readJsonFile(String file) {
+		File f = new File(file);
+		if (f.exists()) {
+			InputStream is = null;
+			try {
+				is = new FileInputStream(file);
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			String jsonTxt = null;
+			try {
+				jsonTxt = IOUtils.toString(is);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			// System.out.println(jsonTxt);
+			JSONObject json = new JSONObject(jsonTxt);
+			return json;
+		}
+		return null;
 	}
 }

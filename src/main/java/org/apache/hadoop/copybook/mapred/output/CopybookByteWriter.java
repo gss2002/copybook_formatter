@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.copybook.mapred;
+package org.apache.hadoop.copybook.mapred.output;
 
 import java.io.DataOutputStream;
 import java.io.IOException;

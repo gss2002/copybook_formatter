@@ -12,7 +12,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.apache.hadoop</groupId>
 	<artifactId>copybook_formatter</artifactId>
-	<version>1.1</version>
+	<version>1.2</version>
 	<name>copybook_formatter</name>
 
 	<repositories>
@@ -30,6 +30,7 @@
 		<java.version>1.8</java.version>
 		<hadoop.version>2.7.1</hadoop.version>
 		<jrecord.version>0.81.4</jrecord.version>
+		<json.version>20160212</json.version>
 	</properties>
 
 	<profiles>
@@ -86,6 +87,7 @@
 									<dependency>
 										<includes>
 											<include>org.apache.hadoop:JRecord-HDFS</include>
+											<include>org.json:json</include>
 										</includes>
 										<excludes>
 											<exclude>log4j:log4j</exclude>
@@ -183,6 +185,11 @@
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>JRecord-HDFS</artifactId>
 			<version>${jrecord.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>${json.version}</version>
 		</dependency>
 	</dependencies>
 </project>

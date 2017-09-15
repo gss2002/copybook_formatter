@@ -66,6 +66,7 @@
 			<useProjectArtifact>false</useProjectArtifact>
 			<includes>
 				<include>org.apache.hadoop:JRecord-HDFS</include>
+				<include>org.json:json</include>
 			</includes>
 			<excludes>
 				<exclude>log4j:log4j</exclude>

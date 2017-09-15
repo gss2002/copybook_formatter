@@ -15,30 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.hadoop.copybook.mapred;
+package org.apache.hadoop.copybook.mapred.output;
 
 import java.io.IOException;
-
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapred.InvalidJobConfException;
 import org.apache.hadoop.mapreduce.JobContext;
-import org.apache.hadoop.mapreduce.RecordReader;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.security.TokenCache;
 
-public class CopybookByteInputFormat extends FileInputFormat<Text, NullWritable> {
+public class CopybookMultiOutputFormat extends TextOutputFormat<Text, NullWritable> {
+
 	@Override
-	protected boolean isSplitable(JobContext context, Path file) {
-		return false;
+	public void checkOutputSpecs(JobContext job) throws IOException {
+		// Ensure that the output directory is set and not already there
+		Path outDir = getOutputPath(job);
+		if (outDir == null) {
+			throw new InvalidJobConfException("Output directory not set.");
+		}
+	    // get delegation token for outDir's file system
+	    TokenCache.obtainTokensForNamenodes(job.getCredentials(),
+	        new Path[] { outDir }, job.getConfiguration());
 	}
 
-	public RecordReader<Text, NullWritable> createRecordReader(InputSplit split, TaskAttemptContext context)
-			throws IOException, InterruptedException {
-		RecordReader<Text, NullWritable> reader = new CopybookByteRecordReader(split, context);
-		reader.initialize(split, context);
-		return reader;
-	}
 }

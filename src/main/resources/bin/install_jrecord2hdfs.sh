@@ -30,9 +30,12 @@ else
 fi
 
 JRECORDJAR=`ls -1 $binDir/lib/JRecord*.jar`
-export HADOOP_CLASSPATH=$JRECORDJAR
+JSONJAR=`ls -1 $binDir/lib/json*.jar`
+
+export HADOOP_CLASSPATH=$JRECORDJAR:$JSONJAR
 COPYBOOKJAR=`ls -1 $binDir/lib/copybook_formatter*.jar`
 
 hadoop fs -mkdir -p /apps/copybook_formatter
 hadoop fs -copyFromLocal -f $JRECORDJAR /apps/copybook_formatter/JRecordV2.jar
 hadoop fs -copyFromLocal -f $COPYBOOKJAR /apps/copybook_formatter/copybook_formatter.jar
+hadoop fs -copyFromLocal -f $JSONJAR /apps/copybook_formatter/json.jar

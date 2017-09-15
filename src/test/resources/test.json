@@ -1,0 +1,28 @@
+{
+                "header_layout": "/home/gss2002/testhdfs/aux-header.txt",
+                "appendCurrentDate": true, 
+         	    "appendCurrentMonth": true,
+				"appendCurrentYear": true,
+                "records": [{
+                                "record": "aux_55",
+                                "copy_layout": "/home/gss2002/testhdfs/test-55-body.txt",
+                                "hive_table": "aux_55",
+                                "include_records": [{
+                                                "name": "aux_55",
+                                                "entries": {
+                                                                "SEGMENT_IDENT": "55"
+                                                }
+                                }]
+                },
+		{
+                                "record": "aux_65",
+                                "copy_layout": "/home/gss2002/testhdfs/test-65-body.txt",
+                                "hive_table": "aux_65",
+                                "include_records": [{
+                                                "name": "aux_65",
+                                                "entries": {
+                                                                "SEGMENT_IDENT": "65"
+                                                }
+				}]
+		}]
+} 
