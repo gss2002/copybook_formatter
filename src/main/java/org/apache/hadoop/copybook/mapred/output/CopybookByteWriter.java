@@ -51,6 +51,7 @@ import net.sf.JRecord.Numeric.ICopybookDialects;
 
 public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 	private static final Log LOG = LogFactory.getLog(CopybookByteWriter.class.getName());
+
 	Path path = null;
 	boolean firstRec = true;
 	AbstractLineReader reader;
@@ -118,7 +119,7 @@ public class CopybookByteWriter extends RecordWriter<Text, NullWritable> {
 		LOG.info("Copybook FileType:" + copyBookFileType);
 		LOG.info("Copybook RecordLayout File:" + copybookLayout);
 
-		String[] loggers = { "org.apache.hadoop.copybook.mapred.CopybookByteWriter" };
+		String[] loggers = { CopybookByteWriter.class.getCanonicalName() };
 
 		if (mrDebug) {
 			for (String ln : loggers) {

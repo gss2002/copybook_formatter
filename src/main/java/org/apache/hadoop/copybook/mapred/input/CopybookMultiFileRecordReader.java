@@ -144,7 +144,7 @@ public class CopybookMultiFileRecordReader extends RecordReader<Text, Text> {
 		LOG.info("Copybook Partition: "+copybookPartitionPath);
 
 
-		String[] loggers = { "org.apache.hadoop.copybook.mapred.CopybookMultiFileRecordReader" };
+		String[] loggers = { CopybookMultiFileRecordReader.class.getCanonicalName() };
 
 		if (mrDebug) {
 			for (String ln : loggers) {

@@ -127,7 +127,7 @@ public class CopybookFileRecordReader extends RecordReader<NullWritable, Text> {
 			LOG.info("Copybook excludeRecord " + excludeRecords);
 		}
 
-		String[] loggers = { "org.apache.hadoop.copybook.mapred.CopybookFileRecordReader" };
+		String[] loggers = { CopybookFileRecordReader.class.getCanonicalName() };
 
 		if (mrDebug) {
 			for (String ln : loggers) {
