@@ -30,7 +30,7 @@
 		<java.version>1.8</java.version>
 		<hadoop.version>2.7.1</hadoop.version>
 		<jrecord.version>0.81.4</jrecord.version>
-		<json.version>20160212</json.version>
+		<json.version>20260719</json.version>
 	</properties>
 
 	<profiles>
